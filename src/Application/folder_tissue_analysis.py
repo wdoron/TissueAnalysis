@@ -16,7 +16,7 @@ matplotlib.use("Agg")  # Set the backend to not use the screen before importing 
 import concurrent.futures
 from tifffile import imread
 
-DEFAULT_PATH = "/Users/doron/Workspace/microglia_stain_ido/Bug"
+DEFAULT_PATH = "/Users/doron/Workspace/ido/TissueAnalysis/Example"
 DEFAULT_FILE_NAME = None
 
 TILE_SIZE = (4096, 4096)
@@ -163,6 +163,8 @@ def analyze_file(path:str, file_name:str):
 #######
     def process_and_save_wrapper(idx, tile, pos):
         try:
+            print(f"Processing {idx}.{pos}...")
+
             # Call your original function with the shared image folder path.
             return process_and_save(idx, tile, pos, image_folder_path)
         except Exception as exc:
