@@ -5,13 +5,13 @@ This project is a digital pathology image analysis pipeline, designed to process
 ## Example Outputs
 
 ### Raw Image
-![Raw Tissue Image](Example/Analyisis/image.jpg)
+![Raw Tissue Image](Example/analyisis/image.jpg)
 
 ### Painted BGR Visualization
-![Painted BGR](Example/Analyisis/painted_bgr.jpg)
+![Painted BGR](Example/analyisis/painted_bgr.jpg)
 
 ### Body Mask
-![Body Mask](Example/Analyisis/body_mask.jpg)
+![Body Mask](Example/analyisis/body_mask.jpg)
 
 ### Cores Mask
-![Cores Mask](Example/Analyisis/cores_mask.jpg)
+![Cores Mask](Example/analyisis/cores_mask.jpg)
