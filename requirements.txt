@@ -1,0 +1,9 @@
+matplotlib==3.10.0
+numpy==2.2.1
+opencv_contrib_python==4.10.0.84
+opencv_python==4.10.0.84
+pandas==2.2.3
+Pillow==11.1.0
+tifffile==2024.12.12
+scikit-image==0.25.0
+scipy==1.15.0
