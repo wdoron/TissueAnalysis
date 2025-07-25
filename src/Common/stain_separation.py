@@ -1,10 +1,11 @@
 import numpy as np
 
-
 class StainSeparation:
     def __init__(self):
-        # Define the stain vectors for H-DAB
-        # Values are taken from literature (e.g., Ruifrok and Johnston)
+        '''
+        Define the stain vectors for H-DAB
+        Values are taken from literature (e.g., Ruifrok and Johnston)
+        '''
 
         self.hematoxylin = np.array([0.650, 0.704, 0.286])
         self.dab = np.array([0.268, 0.570, 0.776])
@@ -23,10 +24,8 @@ class StainSeparation:
     def get_stain_channels(self, img):
         """
         Perform color deconvolution on an H-DAB stained RGB image.
-
         Parameters:
             img (numpy.ndarray): An RGB image with shape (H, W, 3) and pixel values in [0, 255].
-
         Returns:
             tuple: (hematoxylin_channel, dab_channel, residual_channel) as uint8 images.
         """

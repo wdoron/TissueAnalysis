@@ -4,26 +4,27 @@ import math
 import os
 import time
 import traceback
-from typing import Dict, Any, List, Tuple
+from typing import Dict
 
 import cv2
 import matplotlib
 from src.Application import tissue_analysis
-from src.Application.analyze_results import remove_overlapping_cells, summarise_arms
-from src.Application.tissue_analysis import TissueAnalysis, save_results
+from src.Application.analyze_results import remove_overlapping_cells, summarise_arms, save_results
+from src.Application.tissue_analysis import TissueAnalysis
 from src.Common.utils import format_time
 matplotlib.use("Agg")  # Set the backend to not use the screen before importing pyplot
 import concurrent.futures
 from tifffile import imread
 
-DEFAULT_PATH = "/Users/doron/Workspace/microglia_stain_ido/Bug"
-DEFAULT_FILE_NAME = None
+# default_path = "/Users/doron/Workspace/microglia_stain_ido/data"
+default_path = "/Users/doron/Workspace/microglia_stain_ido/data/TestEdge"
+default_file_name = None
 
-TILE_SIZE = (4096, 4096)
-MAX_PIXELS_LENGTH_OF_MICROGLIA = 512+256 #1024 max length of microglia for overlapping tiles
-MAX_TILES = 99999
-DEBUG_TILE_ROW_COL = None
-USE_MULTITHREADING = True
+tile_size = (4096, 4096)
+max_pixels_length_of_body = 1024 #max length for overlapping tiles
+max_tiles = None
+debug_tile_row_col = None
+use_multithreading = True
 
 tissue_analysis.debug_cores = False
 tissue_analysis.debug_body1 = False
@@ -31,17 +32,14 @@ tissue_analysis.debug_body2 = False
 tissue_analysis.debug_body_and_cores = False
 tissue_analysis.sample_width = True
 
-SKIP_FILES = []
-
-
-err_files = []
+skip_files = []
 
 def call_process_image(tile, tile_row_col, tile_x_y, target_folder):
-    if DEBUG_TILE_ROW_COL is not None and DEBUG_TILE_ROW_COL != tile_row_col:
+    if debug_tile_row_col is not None and debug_tile_row_col != tile_row_col:
         return tile_row_col, None
     ta = TissueAnalysis()
-    table_results, images = ta.process_image(tile, tile_row_col, tile_x_y, target_folder, True)
-    return tile_row_col, table_results
+    ta.process_image(tile, tile_row_col, tile_x_y, target_folder, True)
+    return tile_row_col, ta.results
 
 def split_into_overlapping_tiles(image, tile_size=(2048, 2048), overlap=512):
     """
@@ -114,7 +112,7 @@ def process_and_save(idx, tile, pos, path):
     row, col = tile_row_col
     x, y = tile_x_y
     target_folder = os.path.join(path, str(row) + "_" + str(col))
-    if DEBUG_TILE_ROW_COL is None or DEBUG_TILE_ROW_COL == tile_row_col:
+    if debug_tile_row_col is None or debug_tile_row_col == tile_row_col:
         os.makedirs(target_folder, exist_ok=True)
     id, results = call_process_image(tile, tile_row_col, tile_x_y, target_folder)
     return id, results
@@ -134,59 +132,47 @@ def analyze_file(path:str, file_name:str):
     try:
         image = imread(image_path)
     except Exception as e:
-
-        err_files.append((image_path,  "Read err", e))
-        print_red(f"Failed to read image from {image_path}: {e}")
+        print(f"Failed to read image from {image_path}: {e}")
         return
 
     if image is None:
-        err_files.append((image_path, "image is None:", None))
-        print_red(f"Failed to read image from {image_path}")
+        print(f"Failed to read image from {image_path}")
         return
 
     # Split the image into overlapping tiles
     print("Splitting the image into tiles...")
-    tiles, positions = split_into_overlapping_tiles(image, TILE_SIZE, MAX_PIXELS_LENGTH_OF_MICROGLIA)
+    tiles, positions = split_into_overlapping_tiles(image, tile_size, max_pixels_length_of_body)
 
     print(f"Total tiles created: {len(tiles)}")
 
-    if MAX_TILES is not None and len(tiles) > MAX_TILES and DEBUG_TILE_ROW_COL is None:
+    if max_tiles is not None and len(tiles) > max_tiles and debug_tile_row_col is None:
         tiles_len = len(tiles)
-        tiles = tiles[:MAX_TILES]
-        positions = positions[:MAX_TILES]
-        print(f"Processing limited to first {MAX_TILES} / {tiles_len} tiles.")
+        tiles = tiles[:max_tiles]
+        positions = positions[:max_tiles]
+        print(f"Processing limited to first {max_tiles} / {tiles_len} tiles.")
 
-    # Use ThreadPoolExecutor for I/O-bound tasks or ProcessPoolExecutor for CPU-bound tasks
     print("Processing tiles...")
 
 
-#######
     def process_and_save_wrapper(idx, tile, pos):
         try:
-            # Call your original function with the shared image folder path.
             return process_and_save(idx, tile, pos, image_folder_path)
         except Exception as exc:
-            print_red(f"____Generated an exception!!!!! {exc}")
+            print(f"____Generated an exception!!!!! {exc}")
             traceback.print_exc()
-            err_files.append(((idx, tile, pos), "process_and_save_wrapper", exc))
-
             return None
 
     def process_all_tasks(tiles, positions, use_multithreading=True):
-        # Create an iterator over tasks that returns (tile_row_col, dictionary_results)
         if use_multithreading:
             num_cores = os.cpu_count()
             print(f"Number of CPU cores available: {num_cores}")
 
             with (concurrent.futures.ThreadPoolExecutor(max_workers=num_cores) as executor):
-                # executor.map returns an iterator that yields results in order.
                 task_iterator = executor.map(lambda args: process_and_save_wrapper(args[0], args[1][0], args[1][1]),
                              enumerate(zip(tiles, positions)))
 
-                # Process the results
                 return _process_results(task_iterator)
         else:
-            # Sequential execution: build a generator
             task_iterator = (
                 process_and_save_wrapper(idx, tile, pos)
                 for idx, (tile, pos) in enumerate(zip(tiles, positions))
@@ -199,7 +185,7 @@ def analyze_file(path:str, file_name:str):
             if result is None:
                 continue
             tile_row_col, dictionary_results = result
-            if DEBUG_TILE_ROW_COL is None or DEBUG_TILE_ROW_COL == tile_row_col:
+            if debug_tile_row_col is None or debug_tile_row_col == tile_row_col:
                 results_count = len(dictionary_results) if dictionary_results is not None else 0
                 print(
                     f"Processed {('found' if results_count != 0 else 'empty')}: {tile_row_col} results#: {results_count}")
@@ -207,7 +193,7 @@ def analyze_file(path:str, file_name:str):
                     results_list.extend(dictionary_results.values())
         return results_list
 
-    summery = process_all_tasks(tiles, positions, use_multithreading=USE_MULTITHREADING)
+    summery = process_all_tasks(tiles, positions, use_multithreading=use_multithreading)
 
     print("Final Results List:")
     merged_results = remove_overlapping_cells(summery)
@@ -243,69 +229,47 @@ def analyze_folder(folder_path, suffix = 'tif'):
         elif os.path.exists(folder_path):
             folder = os.path.abspath(folder_path)
 
-    # 3. Else, check if there is a folder named "Analyze" in the current working directory.
     if folder is None and os.path.exists(os.path.join(os.getcwd(), "Analyze")):
         folder = os.path.join(os.getcwd(), "Analyze")
 
     if folder is None:
         print("No valid folder found. Using default file.")
-        folder = DEFAULT_PATH
-        if DEFAULT_FILE_NAME is not None:
-            file_name = DEFAULT_FILE_NAME
+        folder = default_path
+        if default_file_name is not None:
+            file_name = default_file_name
             analyze_file(folder, file_name)
             return
 
-    # Now iterate over the files in the selected folder and analyze those matching the suffix.
     print(f"Analyzing folder: {folder}")
     sums:Dict[int, Dict[str,any]] = {}
     all_tables: Dict[int, Dict[str,any]] = {}
-
-    def filtered_files(folder, suffix, skip_files=None):
-        if skip_files is None:
-            skip_files = set()
-
-        files = []
-        for file in os.listdir(folder):
+    for file in os.listdir(folder):
+        if file.endswith(suffix):
             if file in skip_files:
-                print(f"Skipped: {file}")  # Replace with actual logger if needed
+                print (f"skip {file}")
                 continue
-            if file.endswith(suffix):
-                files.append(file)
-        return files
+            try:
+                print(f"Analyzing file: {file}")
+                start_time = time.perf_counter()
+                sum, table = analyze_file(folder, file)
+                sum['file'] = file
+                for id, row in table.items():
+                    row['file'] = file
+                    all_tables[len(all_tables)] = row
 
-    files = filtered_files(folder, suffix, SKIP_FILES)
-    count = len(files)
-    counter = 0
-    for file in files:
-        try:
-            counter = counter + 1
-            print(f"Analyzing file: {counter}/{count} .{file}")
-            start_time = time.perf_counter()
-            sum, table = analyze_file(folder, file)
-            sum['file'] = file
-            for id, row in table.items():
-                row['file'] = file
-                all_tables[len(all_tables)] = row
+                sums[len(sums)] = sum
 
-            sums[len(sums)] = sum
+                cdv_total_path = os.path.join(folder, f"sum.csv")
+                save_results(sums, cdv_total_path)
+                save_results(all_tables, folder + "/all_tables.csv")
 
-            ta = TissueAnalysis()
-            cdv_total_path = os.path.join(folder, f"sum.csv")
-
-            save_results(sums, cdv_total_path)
-            save_results(all_tables, folder + "/all_tables.csv")
-
-            end_time = time.perf_counter()
-            execution_time = format_time(end_time - start_time)
-            print(f"finish with file {file} after {execution_time}")
-        except Exception as e:
-            err_files.append((file, "analyse folder", e))
-            print_red (f"err with file {file} {e}")
-            pass
-
+                end_time = time.perf_counter()
+                execution_time = format_time(end_time - start_time)
+                print(f"finish with file {file} after {execution_time}")
+            except BaseException as e:
+                print (f"err with file {file} {e}")
 
 def full_analysis():
-    # Set up argument parsing.
     parser = argparse.ArgumentParser(
         description="Analyze files in a folder that match a specific suffix."
     )
@@ -314,13 +278,10 @@ def full_analysis():
 
     analyze_folder(args.path)
 
-def print_red(text):
-    print(f"\033[91m{text}\033[0m {traceback.format_exc()}")
-
 if __name__ == "__main__":
     start_time = time.perf_counter()
     full_analysis()
     end_time = time.perf_counter()
     execution_time = format_time(end_time - start_time)
     print (f"\n_______Done all files after {execution_time}")
-    print_red("Error in files:\n" + "\n".join(str(e) for e in err_files))
+

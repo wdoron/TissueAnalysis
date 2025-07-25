@@ -2,7 +2,7 @@ from typing import Dict, Any, Tuple, List
 
 from src.Common.system_io import save_csv
 
-DEBUG = False
+debug = False
 
 
 def save_results(results: Dict[int, Dict[str, Any]] | None,
@@ -106,20 +106,40 @@ def remove_overlapping_cells(cells: List[Dict[str, Any]]) -> Dict[int, Dict[str,
         abs_y = cell['y'] + cbb_y
         return (abs_x, abs_y, cbb_w, cbb_h)
 
-    def boxes_overlap(cell1: Dict[str, Any], cell2: Dict[str, Any]) -> bool:
+    # def boxes_overlap(cell1: Dict[str, Any], cell2: Dict[str, Any]) -> bool:
+    #     x1, y1, w1, h1 = get_absolute_bbox(cell1)
+    #     x2, y2, w2, h2 = get_absolute_bbox(cell2)
+    #
+    #     # Compute bottom-right coordinates
+    #     r1_x2, r1_y2 = x1 + w1, y1 + h1
+    #     r2_x2, r2_y2 = x2 + w2, y2 + h2
+    #
+    #     # Check for overlap: if one rectangle is on the left or above the other, they don't overlap.
+    #     if x1 >= r2_x2 or x2 >= r1_x2:
+    #         return False
+    #     if y1 >= r2_y2 or y2 >= r1_y2:
+    #         return False
+    #     return True
+
+    def circles_overlap(cell1: Dict[str, Any], cell2: Dict[str, Any]) -> bool:
         x1, y1, w1, h1 = get_absolute_bbox(cell1)
         x2, y2, w2, h2 = get_absolute_bbox(cell2)
 
-        # Compute bottom-right coordinates
-        r1_x2, r1_y2 = x1 + w1, y1 + h1
-        r2_x2, r2_y2 = x2 + w2, y2 + h2
+        # Compute centers
+        c1x = x1 + w1 / 2
+        c1y = y1 + h1 / 2
+        c2x = x2 + w2 / 2
+        c2y = y2 + h2 / 2
 
-        # Check for overlap: if one rectangle is on the left or above the other, they don't overlap.
-        if x1 >= r2_x2 or x2 >= r1_x2:
-            return False
-        if y1 >= r2_y2 or y2 >= r1_y2:
-            return False
-        return True
+        # Radius: half the min dimension (bounding circle inside the box)
+        r1 = min(w1, h1) / 2
+        r2 = min(w2, h2) / 2
+
+        # Euclidean distance between centers
+        dist_sq = (c1x - c2x) ** 2 + (c1y - c2y) ** 2
+        radius_sum = r1 + r2
+
+        return dist_sq < radius_sum ** 2
 
     n = len(cells)
     # Boolean list to mark cells that will be kept
@@ -135,8 +155,8 @@ def remove_overlapping_cells(cells: List[Dict[str, Any]]) -> Dict[int, Dict[str,
             if cells[i]['tile_row'] ==  cells[j]['tile_row'] \
                     and cells[i]['tile_col'] ==  cells[j]['tile_col']:
                 continue
-            if boxes_overlap(cells[i], cells[j]):
-                if DEBUG:
+            if circles_overlap(cells[i], cells[j]):# boxes_overlap(cells[i], cells[j]):
+                if debug:
                     print(f"cells overlapping {cells[i]['name']} : {cells[j]['name']}")
 
                 if cells[i]['core_area'] >= cells[j]['core_area']:

@@ -9,47 +9,10 @@ import numpy as np
 import tifffile
 from PIL import Image
 
-def draw_outline_with_holes(image: np.ndarray,
-                            outer_contours: list,
-                            holes_by_outer: dict,
-                            outer_color: tuple = (0, 0, 255),
-                            hole_color: tuple = (0, 0, 255),
-                            thickness: int = 1) -> np.ndarray:
-    """
-    Draws the outlines of outer contours and their corresponding holes on the image.
 
-    Parameters:
-        image (np.ndarray): The input image (can be grayscale or color).
-        outer_contours (list): A list of tuples (index, contour) for outer contours.
-        holes_by_outer (dict): A dictionary mapping an outer contour index to a list of hole contours.
-        outer_color (tuple): BGR color for drawing outer contours. Default is green.
-        hole_color (tuple): BGR color for drawing holes. Default is red.
-        thickness (int): The thickness of the drawn contours.
 
-    Returns:
-        np.ndarray: The image with outlines drawn.
-    """
-    # If the image is grayscale, convert it to BGR so that colors can be displayed.
-    if len(image.shape) == 2 or image.shape[2] == 1:
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-
-    # Draw each outer contour.
-    for idx, contour in outer_contours:
-        cv2.drawContours(image, [contour], -1, outer_color, thickness)
-        # Retrieve and draw the holes associated with this outer contour.
-        holes = holes_by_outer.get(idx, [])
-        for hole in holes:
-            cv2.drawContours(image, [hole], -1, hole_color, thickness)
-
-    return image
-
-import os
-import cv2
-import numpy as np
-
-class ImageLoadError(Exception):
-    """Custom exception raised when image loading fails."""
-    pass
+def round_all(t: tuple, precision: int = 1) -> tuple:
+    return tuple(round(t[i], precision) for i in range(len(t)))
 
 def load_image_debug(img_path: str, backup_path: str) -> Mat | np.ndarray:
     try:
@@ -77,8 +40,6 @@ def load_image_debug(img_path: str, backup_path: str) -> Mat | np.ndarray:
 def debug_image(image, title, target_folder, high_quality = False):
     os.makedirs(target_folder, exist_ok=True)
     if high_quality:
-        # file_name = os.path.join(target_folder, f"{title}.png")
-        # cv2.imwrite(file_name, image, [int(cv2.IMWRITE_PNG_COMPRESSION), 0])  # PNG compression level 0-9, 9 is the most compression
         file_name = os.path.join(target_folder, f"{title}.tif")
         save_tiff_cv2(image, file_name)
 
@@ -111,7 +72,6 @@ def format_time(seconds):
     hours, remainder = divmod(time_delta.seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
 
-    # Format each part to always have two digits (with leading zeros if needed)
     days_str = f"{days:02d}"
     hours_str = f"{hours:02d}"
     minutes_str = f"{minutes:02d}"
