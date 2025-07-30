@@ -17,10 +17,11 @@ This project is a digital pathology image analysis pipeline, designed to process
 ![Cores Mask](Example/analyisis/cores_mask.jpg)
 
 
-Installation
-Use python 3.13.5
-Install requirements
+### Installation
 
-Running:
-Change folder location: folder_tissue_analysis -> DEFAULT_PATH
-Run folder_tissue_analysis 
+- Use python 3.13.5
+- Install requirements
+
+### Running
+- Change folder location: folder_tissue_analysis -> DEFAULT_PATH
+- Run folder_tissue_analysis 
